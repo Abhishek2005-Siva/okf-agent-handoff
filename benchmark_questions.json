@@ -1,0 +1,102 @@
+[
+  {
+    "id": 1,
+    "type": "direct",
+    "question": "What is a REST API?",
+    "start_node": "rest-api",
+    "expected_path": ["rest-api"]
+  },
+  {
+    "id": 2,
+    "type": "direct",
+    "question": "What is FastAPI?",
+    "start_node": "fastapi",
+    "expected_path": ["fastapi"]
+  },
+  {
+    "id": 3,
+    "type": "direct",
+    "question": "What is Python?",
+    "start_node": "python",
+    "expected_path": ["python"]
+  },
+  {
+    "id": 4,
+    "type": "one-hop",
+    "question": "What framework can be used to implement a REST API?",
+    "start_node": "rest-api",
+    "expected_path": ["rest-api", "fastapi"]
+  },
+  {
+    "id": 5,
+    "type": "one-hop",
+    "question": "What protocol does a REST API use?",
+    "start_node": "rest-api",
+    "expected_path": ["rest-api", "http"]
+  },
+  {
+    "id": 6,
+    "type": "one-hop",
+    "question": "What language is FastAPI written in?",
+    "start_node": "fastapi",
+    "expected_path": ["fastapi", "python"]
+  },
+  {
+    "id": 7,
+    "type": "two-hop",
+    "question": "How does a REST API relate to Python?",
+    "start_node": "rest-api",
+    "expected_path": ["rest-api", "fastapi", "python"]
+  },
+  {
+    "id": 8,
+    "type": "two-hop",
+    "question": "How does HTTP relate to IP?",
+    "start_node": "http",
+    "expected_path": ["http", "tcp", "ip"]
+  },
+  {
+    "id": 9,
+    "type": "three-hop",
+    "question": "How does a REST API relate to IP?",
+    "start_node": "rest-api",
+    "expected_path": ["rest-api", "http", "tcp", "ip"]
+  },
+  {
+    "id": 10,
+    "type": "three-hop",
+    "question": "How does a Web Application relate to Python?",
+    "start_node": "web-application",
+    "expected_path": [
+      "web-application",
+      "web-framework",
+      "fastapi",
+      "python"
+    ]
+  },
+  {
+    "id": 11,
+    "type": "four-hop",
+    "question": "How does a REST API relate to an operating system?",
+    "start_node": "rest-api",
+    "expected_path": [
+      "rest-api",
+      "fastapi",
+      "python",
+      "runtime",
+      "operating-system"
+    ]
+  },
+  {
+    "id": 12,
+    "type": "three-hop",
+    "question": "How does a server relate to FastAPI?",
+    "start_node": "server",
+    "expected_path": [
+      "server",
+      "web-application",
+      "web-framework",
+      "fastapi"
+    ]
+  }
+]
