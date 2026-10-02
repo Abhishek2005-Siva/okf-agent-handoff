@@ -9,7 +9,7 @@
 
 ## Streamlit app
 
-An interactive explorer for the OKF knowledge bundle: traverse the graph hop by hop, find relationship paths, browse concepts and see the benchmark. It needs no API key.
+An interactive explorer for the OKF knowledge bundle: traverse the graph hop by hop, find relationship paths, browse concepts and see the benchmark. Exploring needs no API key. To have an LLM answer from the concepts it reaches, pick OpenAI or NVIDIA (free) in the sidebar and paste a key.
 
 ```bash
 pip install -r streamlit_app/requirements.txt

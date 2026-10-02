@@ -4,8 +4,8 @@ Run:  streamlit run streamlit_app/app.py
 
 Loads the OKF knowledge bundle in knowledge_graph_v2/ and lets you explore it the way
 Agent B does: pick a starting concept, follow typed relationships hop by hop, and see
-which concepts and paths become reachable. Needs no API key. The LLM answering step
-(agent_b.py) still runs locally.
+which concepts and paths become reachable. Needs no API key. Optionally, paste an OpenAI or
+NVIDIA (free) key to have an LLM answer from the reached concepts, like Agent B does.
 """
 import json
 import re
@@ -22,6 +22,21 @@ CONCEPTS_DIR = ROOT / "knowledge_graph_v2" / "concepts"
 QUESTIONS_FILE = ROOT / "benchmark_questions.json"
 MAX_HOPS = 4
 ACCENT = "#6d5ef5"
+
+# Both providers speak the OpenAI API; NVIDIA's free hosted models just use another base URL.
+PROVIDERS = {
+    "NVIDIA (free)": {
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "models": ["nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-nano-3-30b-a3b",
+                   "mistralai/mistral-large-2-instruct"],
+        "hint": "nvapi-…  (free key at build.nvidia.com)",
+    },
+    "OpenAI": {
+        "base_url": None,
+        "models": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"],
+        "hint": "sk-…",
+    },
+}
 
 st.set_page_config(page_title="OKF Agent Handoff", page_icon="🕸️", layout="wide")
 
@@ -159,6 +174,31 @@ def path_text(concepts: dict, path, source: str) -> str:
     return " ".join(parts)
 
 
+def ask_llm(concepts: dict, level: dict[str, int], question: str, start: str) -> str:
+    """Answer from the reached concepts and the typed relationships among them (Agent B style)."""
+    from openai import OpenAI
+
+    cfg = PROVIDERS[st.session_state.get("llm_provider", "NVIDIA (free)")]
+    lines = [f"Question: {question}", f"Starting concept: {concepts[start]['title']}", "", "Concepts reached:"]
+    for name, hop in sorted(level.items(), key=lambda kv: kv[1]):
+        lines.append(f"- [{hop} hop] {concepts[name]['title']}: {concepts[name]['description']}")
+    lines += ["", "Relationships among them:"]
+    for name in level:
+        for relation, target in concepts[name]["edges"]:
+            if target in level:
+                lines.append(f"- {concepts[name]['title']} --{relation}--> {concepts[target]['title']}")
+    lines += ["", "Answer using only the concepts and relationships above. State the relationship "
+              "path you followed. If the answer is not in them, say so."]
+    client = OpenAI(api_key=st.session_state["llm_key"], base_url=cfg["base_url"])
+    response = client.chat.completions.create(
+        model=st.session_state["llm_model"],
+        messages=[{"role": "user", "content": "\n".join(lines)}],
+        temperature=0,
+        max_tokens=600,
+    )
+    return (response.choices[0].message.content or "").strip()
+
+
 # ── Pages ─────────────────────────────────────────────────────────────────────────
 
 def tab_explore(concepts: dict) -> None:
@@ -186,6 +226,18 @@ def tab_explore(concepts: dict) -> None:
     ]
     st.markdown(f"**{len(level)} of {len(concepts)} concepts reachable within {hops} hop(s)**")
     st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+
+    st.markdown("**Answer with an LLM**")
+    if not question.strip():
+        st.caption("Type a question above, then answer it from the concepts reached.")
+    elif not st.session_state.get("llm_key"):
+        st.caption("Paste an OpenAI or NVIDIA (free) key in the sidebar to enable this.")
+    elif st.button("Answer from these concepts"):
+        with st.spinner("Asking the model…"):
+            try:
+                st.markdown(ask_llm(concepts, level, question, start))
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"LLM error: {exc}")
 
 
 def tab_path(concepts: dict) -> None:
@@ -271,8 +323,13 @@ def main() -> None:
     with st.sidebar:
         st.title("🕸️ OKF Agent Handoff")
         st.write("Can AI agents hand off knowledge through an explicit, portable relationship graph?")
-        st.caption("Agent A builds an OKF bundle. Agent B walks it. This app explores the bundle "
-                   "without calling any LLM.")
+        st.caption("Agent A builds an OKF bundle. Agent B walks it. Exploring needs no key; "
+                   "an LLM answer is optional.")
+        provider = st.selectbox("LLM provider", list(PROVIDERS), key="llm_provider")
+        st.text_input("API key (optional)", type="password", key="llm_key",
+                      placeholder=PROVIDERS[provider]["hint"],
+                      help="Only used for the optional LLM answer. Kept in this session only.")
+        st.selectbox("Model", PROVIDERS[provider]["models"], key="llm_model")
         st.divider()
         st.markdown("[Source on GitHub](https://github.com/Abhishek2005-Siva/okf-agent-handoff)")
         st.markdown("[Landing page](https://okf-agent-handoff.vercel.app)")
