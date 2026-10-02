@@ -7,6 +7,17 @@
 
 > **A research prototype exploring whether AI agents can hand off knowledge through an explicit, portable relationship graph rather than relying only on documents or semantic retrieval.**
 
+## Streamlit app
+
+An interactive explorer for the OKF knowledge bundle: traverse the graph hop by hop, find relationship paths, browse concepts and see the benchmark. It needs no API key.
+
+```bash
+pip install -r streamlit_app/requirements.txt
+streamlit run streamlit_app/app.py
+```
+
+**Deploy on Streamlit Community Cloud:** at [share.streamlit.io](https://share.streamlit.io) choose this repo, branch `main` and main file `streamlit_app/app.py`.
+
 ## Overview
 
 Modern AI systems commonly pass knowledge between agents through documents, summaries, embeddings, or retrieved context.
