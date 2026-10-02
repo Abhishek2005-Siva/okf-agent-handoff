@@ -1,5 +1,10 @@
 # OKF Agent Handoff
 
+**Live site:** [okf-agent-handoff.vercel.app](https://okf-agent-handoff.vercel.app) · **Source:** [`/web`](web)
+
+> The live site is a Vite + React landing page that explains the project. The application itself runs locally, so follow the setup steps below to try it.
+
+
 > **A research prototype exploring whether AI agents can hand off knowledge through an explicit, portable relationship graph rather than relying only on documents or semantic retrieval.**
 
 ## Overview
