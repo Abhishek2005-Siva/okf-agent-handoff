@@ -13,6 +13,7 @@ from collections import deque
 from pathlib import Path
 
 import pandas as pd
+import urllib.request
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -27,8 +28,7 @@ ACCENT = "#6d5ef5"
 PROVIDERS = {
     "NVIDIA (free)": {
         "base_url": "https://integrate.api.nvidia.com/v1",
-        "models": ["nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-nano-3-30b-a3b",
-                   "mistralai/mistral-large-2-instruct"],
+        "models": [],  # filled live by nvidia_models()
         "hint": "nvapi-…  (free key at build.nvidia.com)",
     },
     "OpenAI": {
@@ -37,6 +37,36 @@ PROVIDERS = {
         "hint": "sk-…",
     },
 }
+
+# NVIDIA's hosted lineup changes often (models get retired without notice), so read the live list.
+NVIDIA_MODELS_URL = "https://integrate.api.nvidia.com/v1/models"
+_NON_CHAT = re.compile(
+    r"embed|rerank|safety|guard|reward|parse|vlm|vision|clip|retriev|riva|neva|vila|kosmos|"
+    r"deplot|fuyu|video|cosmos|ising|starcoder", re.I)
+_PREFERRED = [
+    "mistralai/mistral-large-2-instruct",
+    "nvidia/llama-3.1-nemotron-70b-instruct",
+    "nvidia/nemotron-nano-3-30b-a3b",
+    "openai/gpt-oss-20b",
+]
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def nvidia_models() -> list[str]:
+    """Chat models NVIDIA is serving right now, preferred ones first. Falls back to a short list."""
+    try:
+        with urllib.request.urlopen(NVIDIA_MODELS_URL, timeout=8) as resp:
+            ids = [m["id"] for m in json.load(resp)["data"]]
+        chat = [i for i in ids if not _NON_CHAT.search(i)]
+        first = [m for m in _PREFERRED if m in chat]
+        return (first + [i for i in chat if i not in first]) or list(_PREFERRED)
+    except Exception:  # noqa: BLE001 - offline or endpoint changed
+        return list(_PREFERRED)
+
+
+def models_for(provider: str) -> list[str]:
+    return nvidia_models() if provider.startswith("NVIDIA") else PROVIDERS[provider]["models"]
+
 
 st.set_page_config(page_title="OKF Agent Handoff", page_icon="🕸️", layout="wide")
 
@@ -329,7 +359,7 @@ def main() -> None:
         st.text_input("API key (optional)", type="password", key="llm_key",
                       placeholder=PROVIDERS[provider]["hint"],
                       help="Only used for the optional LLM answer. Kept in this session only.")
-        st.selectbox("Model", PROVIDERS[provider]["models"], key="llm_model")
+        st.selectbox("Model", models_for(provider), key="llm_model")
         st.divider()
         st.markdown("[Source on GitHub](https://github.com/Abhishek2005-Siva/okf-agent-handoff)")
         st.markdown("[Landing page](https://okf-agent-handoff.vercel.app)")
