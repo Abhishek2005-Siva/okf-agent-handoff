@@ -8,16 +8,20 @@ which concepts and paths become reachable. Needs no API key. Optionally, paste a
 NVIDIA (free) key to have an LLM answer from the reached concepts, like Agent B does.
 """
 import json
+import sys
 import re
 from collections import deque
 from pathlib import Path
 
 import pandas as pd
+import urllib.request
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # nvidia_picker.py lives next to this file
+from nvidia_picker import apply_pending_model, render_model_picker  # noqa: E402
 CONCEPTS_DIR = ROOT / "knowledge_graph_v2" / "concepts"
 QUESTIONS_FILE = ROOT / "benchmark_questions.json"
 MAX_HOPS = 4
@@ -27,8 +31,7 @@ ACCENT = "#6d5ef5"
 PROVIDERS = {
     "NVIDIA (free)": {
         "base_url": "https://integrate.api.nvidia.com/v1",
-        "models": ["nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-nano-3-30b-a3b",
-                   "mistralai/mistral-large-2-instruct"],
+        "models": [],  # filled live by nvidia_models()
         "hint": "nvapi-…  (free key at build.nvidia.com)",
     },
     "OpenAI": {
@@ -37,6 +40,36 @@ PROVIDERS = {
         "hint": "sk-…",
     },
 }
+
+# NVIDIA's hosted lineup changes often (models get retired without notice), so read the live list.
+NVIDIA_MODELS_URL = "https://integrate.api.nvidia.com/v1/models"
+_NON_CHAT = re.compile(
+    r"embed|rerank|safety|guard|reward|parse|vlm|vision|clip|retriev|riva|neva|vila|kosmos|"
+    r"deplot|fuyu|video|cosmos|ising|starcoder", re.I)
+_PREFERRED = [
+    "mistralai/mistral-large-2-instruct",
+    "nvidia/llama-3.1-nemotron-70b-instruct",
+    "nvidia/nemotron-nano-3-30b-a3b",
+    "openai/gpt-oss-20b",
+]
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def nvidia_models() -> list[str]:
+    """Chat models NVIDIA is serving right now, preferred ones first. Falls back to a short list."""
+    try:
+        with urllib.request.urlopen(NVIDIA_MODELS_URL, timeout=8) as resp:
+            ids = [m["id"] for m in json.load(resp)["data"]]
+        chat = [i for i in ids if not _NON_CHAT.search(i)]
+        first = [m for m in _PREFERRED if m in chat]
+        return (first + [i for i in chat if i not in first]) or list(_PREFERRED)
+    except Exception:  # noqa: BLE001 - offline or endpoint changed
+        return list(_PREFERRED)
+
+
+def models_for(provider: str) -> list[str]:
+    return nvidia_models() if provider.startswith("NVIDIA") else PROVIDERS[provider]["models"]
+
 
 st.set_page_config(page_title="OKF Agent Handoff", page_icon="🕸️", layout="wide")
 
@@ -320,6 +353,7 @@ def tab_benchmark(concepts: dict) -> None:
 
 
 def main() -> None:
+    apply_pending_model("llm_model")
     with st.sidebar:
         st.title("🕸️ OKF Agent Handoff")
         st.write("Can AI agents hand off knowledge through an explicit, portable relationship graph?")
@@ -329,7 +363,9 @@ def main() -> None:
         st.text_input("API key (optional)", type="password", key="llm_key",
                       placeholder=PROVIDERS[provider]["hint"],
                       help="Only used for the optional LLM answer. Kept in this session only.")
-        st.selectbox("Model", PROVIDERS[provider]["models"], key="llm_model")
+        st.selectbox("Model", models_for(provider), key="llm_model")
+        if provider.startswith("NVIDIA"):
+            render_model_picker(st.session_state.get("llm_key", ""), models_for(provider))
         st.divider()
         st.markdown("[Source on GitHub](https://github.com/Abhishek2005-Siva/okf-agent-handoff)")
         st.markdown("[Landing page](https://okf-agent-handoff.vercel.app)")
