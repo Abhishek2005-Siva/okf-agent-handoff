@@ -8,6 +8,7 @@ which concepts and paths become reachable. Needs no API key. Optionally, paste a
 NVIDIA (free) key to have an LLM answer from the reached concepts, like Agent B does.
 """
 import json
+import sys
 import re
 from collections import deque
 from pathlib import Path
@@ -19,6 +20,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # nvidia_picker.py lives next to this file
+from nvidia_picker import apply_pending_model, render_model_picker  # noqa: E402
 CONCEPTS_DIR = ROOT / "knowledge_graph_v2" / "concepts"
 QUESTIONS_FILE = ROOT / "benchmark_questions.json"
 MAX_HOPS = 4
@@ -350,6 +353,7 @@ def tab_benchmark(concepts: dict) -> None:
 
 
 def main() -> None:
+    apply_pending_model("llm_model")
     with st.sidebar:
         st.title("🕸️ OKF Agent Handoff")
         st.write("Can AI agents hand off knowledge through an explicit, portable relationship graph?")
@@ -360,6 +364,8 @@ def main() -> None:
                       placeholder=PROVIDERS[provider]["hint"],
                       help="Only used for the optional LLM answer. Kept in this session only.")
         st.selectbox("Model", models_for(provider), key="llm_model")
+        if provider.startswith("NVIDIA"):
+            render_model_picker(st.session_state.get("llm_key", ""), models_for(provider))
         st.divider()
         st.markdown("[Source on GitHub](https://github.com/Abhishek2005-Siva/okf-agent-handoff)")
         st.markdown("[Landing page](https://okf-agent-handoff.vercel.app)")
